@@ -26,7 +26,7 @@ if (!(Test-Path -LiteralPath '.git')) { & git init -b main }
 if ($LASTEXITCODE -ne 0) { throw 'Could not create the initial commit.' }
 & gh repo create $repository --public --description '造梦街机：RunningHub AI 场景生成 + 可玩的小游戏 + 离线导出' --source . --remote origin
 if ($LASTEXITCODE -ne 0) { throw 'Could not create the repository.' }
-& git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push -u origin main
+& git -c http.sslBackend=openssl -c credential.helper= -c 'credential.helper=!gh auth git-credential' push -u origin main
 if ($LASTEXITCODE -ne 0) { throw "Repository created at https://github.com/$repository but push failed. Do not recreate it; resume the push." }
 & gh api --method POST "repos/$repository/pages" -f build_type=workflow | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Code uploaded. Enable GitHub Actions in https://github.com/$repository/settings/pages and rerun the Pages workflow." }
