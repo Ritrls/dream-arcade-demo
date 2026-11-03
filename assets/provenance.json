@@ -1,0 +1,39 @@
+{
+  "provider": "RunningHub",
+  "imageModel": "rhart-image-v1/text-to-image",
+  "textModel": "rhart-text-qwen-27b/chat",
+  "processing": "Unit sheets cropped into 192px transparent PNGs for lightweight browser play; raw generated images retained outside public source.",
+  "scene": {
+    "provider": "RunningHub",
+    "model": "rhart-image-v1/text-to-image",
+    "taskId": "2117560297560461314",
+    "status": "SUCCESS",
+    "image": "assets/moonlight-forest.png",
+    "generatedAt": "2026-11-03",
+    "note": "Generated through a real RunningHub API call. API key and temporary URL are intentionally omitted."
+  },
+  "additionalScenes": [
+    {
+      "id": "neon-background",
+      "taskId": "2117617585039687681",
+      "status": "SUCCESS",
+      "error": ""
+    }
+  ],
+  "unitSheets": [
+    {
+      "id": "forest-units",
+      "taskId": "2117655605798936578",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "neon-units",
+      "taskId": "2117655605799792642",
+      "status": "SUCCESS"
+    }
+  ],
+  "frostExample": {
+    "textTask": "2117655606604242946",
+    "imageTask": "2117656464855572481"
+  }
+}

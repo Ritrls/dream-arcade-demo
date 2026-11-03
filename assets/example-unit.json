@@ -1,0 +1,22 @@
+{
+  "id": "demo-fire-fox",
+  "name": "疾火灵狐",
+  "description": "移动迅捷的喷火狐，连续三次攻击后爆发高额伤害，但防御极低。",
+  "role": "assault",
+  "health": 65,
+  "damage": 22,
+  "range": 110,
+  "interval": 0.8,
+  "speed": 85,
+  "ability": "burst",
+  "cost": 115,
+  "sprite": {
+    "src": "assets/units/demo-fire-fox.png"
+  },
+  "source": "AI 生成示例",
+  "provenance": {
+    "provider": "RunningHub",
+    "textTask": "2117660440808038401",
+    "imageTask": "2117660594961293313"
+  }
+}

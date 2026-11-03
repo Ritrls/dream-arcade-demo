@@ -1,29 +1,41 @@
-# ✦ 造梦街机 · Dream Arcade
+# ✦ 造梦街机 · 自然语言单位工坊
 
-**把脑洞，变成下一局。** 选择星光收集、增量矿场或极速夜航，用 RunningHub 生成完整主题素材，立即进入可以游玩的迷你街机。
+**脑洞成兵，马上开战。** 用一句话创造队员，生成专属素材、属性和技能，再带进三种经典玩法。
 
 **[在线试玩 →](https://ritrls.github.io/dream-arcade-demo/)**
 
-![造梦街机预览](docs/preview.png)
+![项目预览](docs/preview.png)
 
-这是一个浏览器端演示项目：**AI 生成场景和玩家、资源、障碍、工具素材；三个游戏模板提供玩法**。不宣称自动生成任意游戏代码或游戏引擎。
+## 三种可以真正玩的模板
 
-随附的 `playable-demo.html` 已嵌入场景图片，可以直接双击离线试玩。
+- **庭院守卫**：五路六列布阵，抵御五波来客。选择单位再点草地放置；远程输出、前排护盾和减速可以配合。每次击杀回收能量。
+- **口袋战场**：150 秒的口袋 RTS。点击单位卡派兵，点击地图移动或集结；驻守据点增加能量收入，组织小队攻破敌方核心。
+- **增量矿场**：点击或长按矿石开采，雇佣单位自动生产，升级工具和推进矿层。每十块矿脉有一次四倍收益。离线采集最多结算两小时。
 
-## 可以做什么
+月光秘境和霓虹边境两套预设包含真实 RunningHub 生成的单位美术。无需注册或 API Key 就能试玩，支持电脑、手机和键盘操作。
 
-- **星光收集**：资源收集、最高五倍连击、主动护盾、每收集 12 个资源自动充能、逐渐增大的难度。
-- **增量矿场**：点击或长按开采，升级工具提高伤害，雇佣自动采集，每 5 块矿脉深入下一层。升级、矿层与资源自动保存；这是持续经营模板，不受单局时长限制。
-- **极速夜航**：三车道换道，超越障碍，收集氮气，按住加速冲过距离终点。每排障碍保留安全路线。
-- 两个内置主题 **月光秘境 / 霓虹边境**，都包含真实 RunningHub 生成的场景和四种游戏素材，无需 Key 直接试玩。
-- 自定义主题名、资源名及画风。更换主题会替换玩家 / 赛车、矿石 / 收集物、障碍、工具及场景。
-- 键盘、鼠标和触屏操作；30/45/60 秒挑战、暂停、全屏。
-- 导出当前模板、内嵌图片与矿场进度为独立 HTML，双击离线游玩。
-- 查询真实 RunningHub 任务状态；支持停止等待、刷新后继续完成两阶段主题生成。
+创作区的“免费体验 AI 成品”可以直接载入实际生成过的疾火灵狐，连同素材、生命、攻击、速度和爆发技能一起上场；它是固定示例，不会假装再次调用模型。
 
-## 本地运行
+## 自然语言造单位
 
-需要 Node.js 22 或更新版本，无第三方依赖。
+例如：**“一只跑得快但很脆的喷火小狐狸，连续三次攻击能爆发。”**
+
+1. 在网页连接自己的 RunningHub API Key。
+2. 输入描述，点击“AI 造个单位”。
+3. RunningHub 文本模型设计名称、生命、攻击、射程、攻击间隔、移动速度和技能；图片模型绘制专属单位素材。
+4. 单位经过边界检查和费用平衡后加入阵容，可以在当前局使用。
+
+**属性参与真实模拟**：生命决定耐久，攻击和间隔决定输出，射程影响开火距离，速度影响 RTS 行军，技能改变减速、爆发或减伤效果。矿场将单位攻击力 ÷ 攻击间隔转为生产效率，雇佣费用按效率平衡。
+
+目前技能库为**稳定攻击、冰霜减速、三击爆发、护盾减伤**。游戏规则和技能由固定模板提供，AI 不生成任意可执行代码。
+
+“免费试配”根据关键词调整预设单位的属性，使用预设美术，页面会明确标注为规则试配；它不调用模型，也不冒充 AI 生图。
+
+自建单位保存在本机浏览器，最多保留八名；刷新后仍然可用。分享链接携带玩法和世界选择，自建阵容可通过“导出离线游戏”打包给朋友。离线文件内嵌单位图片、属性、游戏和矿场进度，不含 Key。
+
+## 本地运行与检查
+
+Node.js 22 或更新版本，零第三方运行依赖。
 
 ```sh
 npm run dev
@@ -36,63 +48,46 @@ npm test
 npm run build
 ```
 
-构建结果在 `dist/`，可放在任意静态托管平台。源代码使用相对路径，支持 GitHub Pages 仓库子路径。
+构建结果在 dist/。源码使用相对路径，支持 GitHub Pages 仓库子路径。
+
+检查覆盖属性边界与费用、技能效果、真实伤害、占点、生成矿工产量、低帧率一致性、离线结算、接口生命周期、生成恢复及离线导出。
 
 ## RunningHub 接入
 
-1. 在 [RunningHub](https://www.runninghub.cn/) 获取具有模型 API 权限的企业共享 Key。
-2. 点击页面右上角「API 设置」并填写 Key。
-3. 描述主题、填写主题名与资源名，选择画风，点击「生成完整主题」。每个完整主题需要 **2 次生图调用**：一张场景、一张包含四种游戏对象的素材图集。调用按照 RunningHub 账户规则计费。
-4. 等待两部分完成后切换任意模板开始游戏，或导出离线文件。
+使用官方国际站网关 `https://www.runninghub.ai/openapi/v2`：
 
-使用官方模型接口：
+- 文本任务：`POST /rhart-text-qwen-27b/chat`，请求字段 `prompt`。
+- 单位图片：`POST /rhart-image-v1/text-to-image`，请求字段 `prompt` 和 `aspectRatio: "1:1"`。
+- 状态查询：`POST /query`，请求字段 `taskId`。
+- 认证：`Authorization: Bearer <visitor-provided-key>`。
 
-```text
-POST https://www.runninghub.ai/openapi/v2/rhart-image-v1/text-to-image
-Authorization: Bearer <visitor-provided-key>
-Content-Type: application/json
+完整单位通常需要一次文本设计和一次生图，按平台账户规则计费。模型 API 需要具有相应权限的企业共享 Key。Key 只在当前页面内存中，刷新即清除，不进入仓库、浏览器长期存储或导出文件。
 
-{"prompt":"...","aspectRatio":"16:9"}
+每五秒查询状态，每阶段最多等待十分钟。已取得的任务编号保存在当前标签页，可以继续制造。停止等待不会取消平台任务或撤销费用。提交响应丢失时不会自动再次创建付费任务，请先查看平台调用记录。
 
-素材图集使用同一接口，aspectRatio 为 1:1；按照固定 2×2 格式生成玩家载具、资源、障碍、工具。浏览器移除绿幕底色并按单元格绘制到游戏中。
+预设美术已下载并处理成约 192px 的透明像素素材。游戏加载不依赖临时生成链接；自建单位完成后同样保存内嵌图片。生成模型偶尔可能未遵循独立角色或纯色背景要求，页面提供备用图形，建议按模板内示例描述单个完整单位。
 
-POST https://www.runninghub.ai/openapi/v2/query
-{"taskId":"..."}
-```
+官方来源：[接口契约](https://github.com/HM-RunningHub/ComfyUI_RH_OpenAPI/blob/main/developer-kit/rh-api-contract.md)、[模型参数表](https://github.com/HM-RunningHub/ComfyUI_RH_OpenAPI/blob/main/developer-kit/model-registry.public.json)。生成记录保存在 assets/provenance.json。
 
-每 5 秒查询一次，每个任务最长等待 10 分钟。失败、取消、网络错误和超时都会显示提示；两部分任务编号与已完成结果保存在当前标签页 sessionStorage，可使用原 Key 继续查询，不会重新提交已有任务。停止等待或清除本地记录不会取消 RunningHub 上的任务，也不会撤销可能产生的计费。提交请求不自动重试，以避免重复创建付费任务；查询可对临时故障进行有限重试。提交结果不明时，先检查平台调用记录再创建新主题。
+## 部署
 
-Key **只存在当前页面内存中**，不会写入 localStorage、仓库、导出文件或服务端。刷新页面后需要重新填写。请求从浏览器直接发送至 RunningHub 官方国际站接口，依赖其跨域访问支持；本项目不使用第三方公共代理。浏览器联调发现 `.cn` 网关返回重复的跨域响应头，因此使用已验证的官方 `.ai` 网关。请勿把个人 Key 放进公开网页代码。
+GitHub Actions 会在推送 main 后运行检查、构建并发布 Pages。首次在 Settings → Pages 选择 GitHub Actions。不需要把 RunningHub Key 配置为仓库 Secret。
 
-生成链接有时效，页面会将图片转为内嵌素材；请及时导出。若图片服务暂时限制跨域或链接已过期，会显示下载失败提示。全部预设素材已下载到仓库，不依赖临时结果 URL。生成式图集的对齐和绿幕纯度可能存在差异，固定格子和备用图形帮助保持游戏可用。
-
-模型与协议来源：[官方接口契约](https://github.com/HM-RunningHub/ComfyUI_RH_OpenAPI/blob/main/developer-kit/rh-api-contract.md)、[官方模型参数表](https://github.com/HM-RunningHub/ComfyUI_RH_OpenAPI/blob/main/developer-kit/model-registry.public.json)。模型权限及费用以 RunningHub 当前规则为准。
-
-## GitHub Pages 部署
-
-仓库包含 `.github/workflows/pages.yml`：推送到 `main` 会先运行接口契约测试，再构建并部署。
-
-首次部署时在仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**。不需要把 RunningHub Key 添加到 GitHub Secrets；每位访问者使用自己的 Key。
-
-## 项目结构
+## 源码
 
 ```text
-index.html / style.css   页面、模板选择与响应式布局
-workshop.js              创作、主题、设置和两阶段任务恢复
-games.js                 三个 Canvas 游戏模板与可验证的纯规则
-standalone.js            离线单文件打包
-runninghub.js           RunningHub 提交与轮询
-assets/                 内置场景、真实生成记录、品牌图标
-tests/                  API 生命周期、挖矿经济、竞速与导出测试
-build.mjs               零依赖静态构建
+lab.js              页面、阵容、自然语言制造与本地保存
+battle.js           线路防守、RTS、矿场的统一模拟与绘制
+unit-model.js       单位参数、技能枚举与费用平衡
+unit-generator.js   文本设计 → 生图，两阶段可恢复任务
+unit-store.js       本地单位库
+mining-rules.js     采矿经济、雇佣产量与离线收益
+portable.js         单文件离线游戏打包
+runninghub.js       官方 API 提交、查询与错误处理
 ```
 
-## 致谢
+## 致谢与许可
 
-受 [PixelRunner](https://github.com/XIAOTsune/PixelRunner) 将 RunningHub 能力接入具体创作工具的思路启发。本项目独立实现，没有复制其代码或品牌素材。
+受 [PixelRunner](https://github.com/XIAOTsune/PixelRunner) 将 RunningHub 接入具体创作工具的思路启发，独立实现代码和品牌。线路塔防借鉴经典玩法，单位美术为原创生成。
 
-AI 场景能力由 **RunningHub API** 提供。本项目为独立技术演示，并非 RunningHub 官方产品。其名称与商标属于各自权利人。
-
-## 许可证
-
-代码与手绘 SVG 示例采用 MIT 许可证。AI 图片的使用同时遵循 RunningHub 和相应模型的服务条款。
+AI 能力由 RunningHub API 提供。本项目为独立演示，并非平台官方产品。代码采用 MIT；生成图片同时遵循平台与模型服务条款。

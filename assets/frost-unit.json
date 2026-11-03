@@ -1,0 +1,21 @@
+{
+  "damage": 12,
+  "role": "sniper",
+  "spritePrompt": "Cute timid mushroom unit, wearing small blue hat, shooting glowing ice crystals, frosty texture, fragile body, strategy game icon style, white and blue color scheme, simple background.",
+  "name": "怯怯冰霜菇",
+  "description": "胆小但射程远，射冰晶减速，身体脆弱，戴蓝帽。",
+  "health": 60,
+  "range": 240,
+  "interval": 1.5,
+  "ability": "slow",
+  "speed": 40,
+  "id": "demo-frost",
+  "source": "RunningHub AI",
+  "sprite": {
+    "src": "assets/units/forest-sniper.png"
+  },
+  "provenance": {
+    "textTask": "2117655606604242946",
+    "artTask": "2117656464855572481"
+  }
+}

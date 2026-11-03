@@ -1,9 +1,0 @@
-{
-  "provider": "RunningHub",
-  "model": "rhart-image-v1/text-to-image",
-  "taskId": "2117560297560461314",
-  "status": "SUCCESS",
-  "image": "assets/moonlight-forest.png",
-  "generatedAt": "2026-11-03",
-  "note": "Generated through a real RunningHub API call. API key and temporary URL are intentionally omitted."
-}

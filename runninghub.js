@@ -47,6 +47,11 @@ export async function poll(taskId, options = {}) {
     catch (error) { error.taskId = taskId; throw error; }
     onStatus(result.status, taskId);
     if (result.status === 'SUCCESS') {
+      if (options.output === 'text') {
+        const output = result.results.map(r => r.text || r.content || r.output).find(value => typeof value === 'string' && value.trim());
+        if (!output) throw new RunningHubError('任务完成，但未返回单位设计文本。', taskId);
+        return { ...result, taskId, text: output };
+      }
       const url = result.results.map(r => r.url || r.outputUrl).find(u => { try { return new URL(u).protocol === 'https:'; } catch { return false; } });
       if (!url) throw new RunningHubError('任务完成，但没有返回图片链接。', taskId);
       return { ...result, taskId, url };
