@@ -1,0 +1,25 @@
+{
+  "provider": "RunningHub",
+  "model": "rhart-image-v1/text-to-image",
+  "generatedAt": "2026-11-03",
+  "assets": [
+    {
+      "id": "forest-atlas",
+      "taskId": "2117617585085825025",
+      "status": "SUCCESS",
+      "error": ""
+    },
+    {
+      "id": "neon-atlas",
+      "taskId": "2117617584726777857",
+      "status": "SUCCESS",
+      "error": ""
+    },
+    {
+      "id": "neon-background",
+      "taskId": "2117617585039687681",
+      "status": "SUCCESS",
+      "error": ""
+    }
+  ]
+}

@@ -58,7 +58,7 @@ export async function poll(taskId, options = {}) {
 }
 export async function generateScene(prompt, options = {}) {
   // Creation is deliberately not retried: a dropped response may already have created a paid task.
-  const result = await request(MODEL, { prompt, aspectRatio: '16:9' }, options);
+  const result = await request(MODEL, { prompt, aspectRatio: options.aspectRatio || '16:9' }, options);
   if (!result.taskId) throw new RunningHubError('没有收到任务编号，请先查看 RunningHub 调用记录，避免重复付费。');
   options.onStatus?.(result.status || 'CREATE', result.taskId);
   return poll(result.taskId, options);
