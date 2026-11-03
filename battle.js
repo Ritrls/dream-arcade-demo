@@ -55,18 +55,28 @@ export function createBattleGame(canvas, options = {}) {
   const offlineGain = mining.offline(mine, now()); if (offlineGain) { notice(`离线采集带回 ${offlineGain} 资源，欢迎回来！`); save(); }
   function energy() { return mode === 'mine' ? mine.credits : state?.energy || 0; }
   function deployCost(u) { return mode === 'mine' ? model.miningCost(u, mine.workers?.find(w => w.id === u.id)?.count || 0) : u.cost; }
+  function incoming() {
+    if (!state || mode !== 'defense' || !running) return null;
+    if (state.left > 0) return { row: (state.wave + state.left) % 5, seconds: Math.max(1, Math.ceil(state.nextSpawn)) };
+    if (!state.enemies.length && state.wave < 5) { const wave = state.wave + 1; return { row: (wave + 2 + wave + (state.hard ? 1 : 0)) % 5, seconds: Math.max(1, Math.ceil(state.between + 1)) }; }
+    return null;
+  }
   function emit() { options.onState?.({ mode, running, paused, elapsed, selected, energy: energy(), roster, costs: Object.fromEntries(roster.map(u => [u.id, deployCost(u)])), toolCost: mining.cost(mine, 'tool'), power: mining.clickPower(mine), autoPower: mining.autoPower(mine), mine: { ...mine }, wave: state?.wave || 0, enemies: state?.enemies?.length || 0, home: state?.home?.hp ?? 5, enemyBase: state?.enemyBase?.hp, captured: state?.posts?.filter(p => p.capture >= .95).length || 0, population: state?.allies?.length || 0 }); }
   function finish(win, detail) { if (!running) return; running = false; release(); options.onEnd?.({ mode, win, detail, elapsed: Math.round(elapsed), score: state.kills * 25 + Math.round(Math.max(0,state.home.hp)) * 5, kills: state.kills, hard: state.hard }); emit(); }
   function start(config = {}) {
     mode = ['defense', 'rts', 'mine'].includes(config.mode) ? config.mode : mode;
     elapsed = accumulator = saveClock = emitClock = 0; last = null; particles = []; messages = []; release(); group = null;
     state = { hard: config.difficulty === 'hard', energy: mode === 'defense' ? 180 : 170, allies: [], enemies: [], bullets: [], kills: 0, wave: 0, left: 0, nextSpawn: mode === 'defense' ? 2.5 : 5, between: 2, rally: { x: 340, y: 205 }, home: { id: 'home', x: mode === 'rts' ? 85 : 54, y: 300, hp: mode === 'rts' ? 450 : 5, maxHp: mode === 'rts' ? 450 : 5, team: 'ally', base: true, cooldown: 0 }, enemyBase: { id: 'enemy-base', x: 910, y: 300, hp: 650, maxHp: 650, team: 'enemy', base: true, cooldown: 0 }, posts: [{ x: 340, y: 205, capture: 0 }, { x: 500, y: 405, capture: 0 }, { x: 660, y: 205, capture: 0 }], swing: 0 };
-    running = true; paused = false; options.onPause?.(false); canvas.focus(); emit();
+    running = true; paused = false; options.onPause?.(false); canvas.focus({ preventScroll: true }); emit();
   }
   function stop() { running = false; paused = false; state = null; release(); save(); emit(); }
   function setMode(value) { stop(); mode = ['defense', 'rts', 'mine'].includes(value) ? value : 'defense'; emit(); }
   function select(id) { if (roster.some(u => u.id === id)) selected = id; emit(); }
-  function addAlly(u, x, y, row, col) { const ally = { ...u, id: 'ally-' + nextId++, unitId: u.id, x, y, row, col, hp: u.health, maxHp: u.health, cooldown: .25, attacks: 0, slow: 0, team: 'ally', dest: { ...state.rally } }; state.allies.push(ally); spark(x, y, theme.accent); return ally; }
+  function formationPoint(center, index) {
+    const radius = Math.min(92, 33 * Math.sqrt(index)), angle = index * 2.399963229728653;
+    return { x: clamp(center.x + Math.cos(angle) * radius, 100, 940), y: clamp(center.y + Math.sin(angle) * radius, 110, 520) };
+  }
+  function addAlly(u, x, y, row, col) { const ally = { ...u, id: 'ally-' + nextId++, unitId: u.id, x, y, row, col, hp: u.health, maxHp: u.health, cooldown: .25, attacks: 0, slow: 0, team: 'ally', dest: formationPoint(state.rally, state.allies.length) }; state.allies.push(ally); spark(x, y, theme.accent); return ally; }
   function deploy(row = cursor.row, col = cursor.col) {
     if (!running || paused || !unit()) return false;
     const u = unit(), price = deployCost(u);
@@ -103,7 +113,7 @@ export function createBattleGame(canvas, options = {}) {
     state.energy = Math.min(999, state.energy + (state.hard ? 8 : 10) * dt);
     if (state.left === 0 && state.enemies.length === 0) {
       state.between -= dt;
-      if (state.between <= 0) { state.wave++; if (state.wave > 5) { finish(true, '花园守住了！五波来客全部击退。'); return; } state.left = 2 + state.wave + (state.hard ? 1 : 0); state.nextSpawn = 1; state.energy = Math.min(999, state.energy + 20); say(`第 ${state.wave} / 5 波`, 500, 95); }
+      if (state.between <= 0) { state.wave++; if (state.wave > 5) { finish(true, state.home.hp===5?'完美防守！五波来客全部击退。':`五波进攻结束，保住了 ${state.home.hp} 点防线！`); return; } state.left = 2 + state.wave + (state.hard ? 1 : 0); state.nextSpawn = 1; state.energy = Math.min(999, state.energy + 20); say(`第 ${state.wave} / 5 波`, 500, 95); }
     }
     if (state.left > 0) { state.nextSpawn -= dt; if (state.nextSpawn <= 0) { spawnEnemy((state.wave + state.left) % 5); state.left--; state.nextSpawn = Math.max(2, 4.5 - state.wave * .35); state.between = 3; } }
     for (const a of state.allies) { a.cooldown -= dt; const target = state.enemies.filter(e => e.hp > 0 && e.row === a.row && e.x >= a.x - 15 && e.x - a.x <= a.range * 2.1).sort((x,y) => x.x - y.x)[0]; if (target && a.cooldown <= 0) shoot(a, target); }
@@ -118,6 +128,15 @@ export function createBattleGame(canvas, options = {}) {
     else if (elapsed >= 180) finish(false, '挑战时间到。调整阵容，再守一回。');
   }
   function walk(a, target, dt) { const d = distance(a, target); if (d > 4) { const amount = Math.min(d, a.speed * (a.slow > 0 ? .45 : 1) * dt); a.x += (target.x - a.x) / d * amount; a.y = clamp(a.y + (target.y - a.y) / d * amount, 105, 525); } }
+  function separate(actors, dt) {
+    for (let i = 0; i < actors.length; i++) for (let j = i + 1; j < actors.length; j++) {
+      const a = actors[i], b = actors[j]; if (a.hp <= 0 || b.hp <= 0) continue;
+      const d = distance(a, b); if (d >= 42) continue;
+      const dx = d > .001 ? (b.x - a.x) / d : 1, dy = d > .001 ? (b.y - a.y) / d : 0, push = Math.min((42 - d) / 2, 36 * dt);
+      a.x = clamp(a.x - dx * push, 75, 950); a.y = clamp(a.y - dy * push, 105, 525);
+      b.x = clamp(b.x + dx * push, 75, 950); b.y = clamp(b.y + dy * push, 105, 525);
+    }
+  }
   function updateRTS(dt) {
     for (const post of state.posts) { const friends = state.allies.filter(a => a.hp > 0 && distance(a, post) < 105).length, foes = state.enemies.filter(e => e.hp > 0 && distance(e, post) < 105).length; if (friends !== foes) post.capture = clamp(post.capture + Math.sign(friends - foes) * dt * .2, -1, 1); }
     state.energy = Math.min(999, state.energy + (5 + state.posts.filter(p => p.capture >= .95).length * 3) * dt);
@@ -130,6 +149,7 @@ export function createBattleGame(canvas, options = {}) {
         if (target) { if (a.cooldown <= 0) shoot(a, target); }
         else walk(a, a.team === 'ally' ? a.dest : state.home, dt);
       }
+      separate(actors, dt);
     }
     for (const base of [state.home, state.enemyBase]) { base.cooldown -= dt; const targets = base.team === 'ally' ? state.enemies : state.allies, target = targets.find(t => t.hp > 0 && distance(base, t) < 170); if (target && base.cooldown <= 0) { shoot({ ...base, damage: 10, interval: 1.5, ability: 'none' }, target); base.cooldown = 1.5; } }
     if (state.enemyBase.hp <= 0) finish(true, `对方核心已攻破！控制据点，让增援源源不断。`);
@@ -144,6 +164,7 @@ export function createBattleGame(canvas, options = {}) {
     if (mode !== 'mine') {
       state.bullets = state.bullets.filter(b => { if (b.target.hp <= 0) return false; const d = distance(b, b.target); if (d < 14) { hit(b.target, b.damage, b.ability); return false; } const move = Math.min(d, 520 * dt); b.x += (b.target.x - b.x) / d * move; b.y += (b.target.y - b.y) / d * move; return true; });
       state.allies = state.allies.filter(a => a.hp > 0); state.enemies = state.enemies.filter(e => e.hp > 0);
+      if (group && !state.allies.some(a => group.has(a.id))) { group = null; notice('所选队员已撤离，已切回全军指挥。'); }
     }
     saveClock += dt; if (saveClock > 4) { save(); saveClock = 0; }
   }
@@ -154,13 +175,20 @@ export function createBattleGame(canvas, options = {}) {
     if (mode === 'defense') {
       panel(110,115,680,420,'#182f31a8',14);
       for (let row=0;row<5;row++) for (let col=0;col<6;col++) { ctx.fillStyle=(row+col)%2 ? '#bbdfad14':'#a4d5d908';ctx.fillRect(120+col*110,125+row*82,108,80); }
-      if (running && !paused) { ctx.strokeStyle=theme.accent;ctx.lineWidth=2;ctx.strokeRect(122+cursor.col*110,127+cursor.row*82,104,76); }
+      if (running && !paused) {
+        const x=175+cursor.col*110,y=166+cursor.row*82,occupied=state.allies.some(a=>a.row===cursor.row&&a.col===cursor.col),u=unit();
+        ctx.strokeStyle=occupied?'#ffd5a4':theme.accent;ctx.lineWidth=2;ctx.strokeRect(x-53,y-39,104,76);
+        if(u&&!occupied){ctx.fillStyle='#bbf4d219';ctx.fillRect(x,y-33,Math.min(960-x,u.range*2.1),66);ctx.globalAlpha=.38;sprite(u,x,y,70);ctx.globalAlpha=1;}
+        const next=incoming();if(next){const y=166+next.row*82;panel(823,y-27,141,54,'#332c3de8');text('◀ 第 '+(next.row+1)+' 路',892,y-2,18,'#ffd5b9','center');text(next.seconds+' 秒后来客',892,y+18,12,'#e5b8c2','center');}
+      }
       text('守护区',56,110,13,'#d5e8da','center'); for(let i=0;i<(state?.home.hp??5);i++) text('♥',55,180+i*63,23,'#c4f9dc','center');
     } else if(mode==='rts') {
       ctx.strokeStyle='#a9cfbc22';ctx.lineWidth=36;ctx.beginPath();ctx.moveTo(90,300);ctx.lineTo(340,205);ctx.lineTo(500,405);ctx.lineTo(660,205);ctx.lineTo(910,300);ctx.stroke();
       for(const post of state?.posts||[{x:340,y:205,capture:0},{x:500,y:405,capture:0},{x:660,y:205,capture:0}]){const color=post.capture>=.95?theme.accent:post.capture<=-.95?'#f3aac5':'#b0c4d9';panel(post.x-31,post.y-30,62,60,'#132239d9');text('⚑',post.x,post.y+12,32,color,'center');bar(post.x-32,post.y+39,64,Math.abs(post.capture),color);}
       for(const base of state?[state.home,state.enemyBase]:[{x:85,y:300,hp:450,maxHp:450,team:'ally'},{x:910,y:300,hp:650,maxHp:650,team:'enemy'}]){const color=base.team==='ally'?theme.accent:'#e7a4c1';panel(base.x-38,base.y-45,76,90,'#1b2b43e8');text('✦',base.x,base.y+14,42,color,'center');bar(base.x-38,base.y-58,76,base.hp/base.maxHp,color);text(base.team==='ally'?'我方核心':'对方核心',base.x,base.y+69,14,color,'center');}
-      if(state?.rally){ctx.strokeStyle='#c5ffdf88';ctx.lineWidth=2;ctx.beginPath();ctx.arc(state.rally.x,state.rally.y,14+Math.sin(time/180)*3,0,Math.PI*2);ctx.stroke();}
+      if(state?.rally){ctx.strokeStyle='#c5ffdf88';ctx.lineWidth=2;ctx.beginPath();ctx.arc(state.rally.x,state.rally.y,14+Math.sin(time/180)*3,0,Math.PI*2);ctx.stroke();text('增援集结点',state.rally.x,state.rally.y-24,12,'#d5f6e3','center');}
+      if(group){for(const a of state.allies.filter(a=>group.has(a.id))){ctx.strokeStyle='#c9ffe344';ctx.lineWidth=1;ctx.setLineDash([6,6]);ctx.beginPath();ctx.arc(a.x,a.y,a.range,0,Math.PI*2);ctx.moveTo(a.x,a.y);ctx.lineTo(a.dest.x,a.dest.y);ctx.stroke();ctx.setLineDash([]);}}
+      if(running)text(group?'单兵指挥 · 点地图移动 / 全军集结切回':'全军指挥 · 点地图推进 / 点队员单选',500,578,16,'#d0e4df','center');
     } else {
       panel(220,140,560,350,'#142439a9',20);const rare=(mine.blocks+1)%10===0;ctx.shadowColor=rare?'#ffe2a2':theme.accent;ctx.shadowBlur=24;ctx.fillStyle=rare?'#ffdaa0':'#9de8df';ctx.save();ctx.translate(500+(state?.swing||0)*Math.sin(time/18)*20,320);ctx.rotate(Math.PI/4);ctx.fillRect(-62,-62,124,124);ctx.fillStyle=rare?'#bd9361':'#4c9cae';ctx.fillRect(-35,-35,70,70);ctx.restore();ctx.shadowBlur=0;text(rare?'✦ 稀有矿 · 四倍收益':resource()+'矿脉',500,188,22,rare?'#ffe2a2':'#e0eef3','center');bar(350,445,300,mine.hp/mine.maxHp,theme.accent);text(Math.ceil(mine.hp)+' / '+mine.maxHp,500,480,16,'#d0e0ec','center');
       mine.workers.forEach((w,i)=>{const u=roster.find(u=>u.id===w.id);if(u){const x=260+i%6*95,y=520+Math.floor(i/6)*42;sprite(u,x,y,53);text('×'+w.count,x+19,y+20,12,'#d7e8ee','center');}});text('点击 / 按住矿石开采，雇佣单位后自动生产',500,105,18,'#c6d8e8','center');
@@ -183,7 +211,7 @@ export function createBattleGame(canvas, options = {}) {
   }
   function point(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H};}
   function pointerMove(e){const p=point(e);cursor={row:clamp(Math.floor((p.y-125)/82),0,4),col:clamp(Math.floor((p.x-120)/110),0,5)};}
-  function pointerDown(e){if(!running||paused)return;canvas.focus();canvas.setPointerCapture?.(e.pointerId);const p=point(e);pointerMove(e);if(mode==='mine'){strike();held=true;repeat=.16;}else if(mode==='defense'){if(p.x>=120&&p.x<=780&&p.y>=125&&p.y<=535)deploy();}else{const hit=state.allies.find(a=>distance(a,p)<30);if(hit){group=new Set([hit.id]);notice(hit.name+'已选中，点击目标位置移动。');}else{state.rally={x:clamp(p.x,100,920),y:clamp(p.y,110,525)};for(const a of state.allies)if(!group||group.has(a.id))a.dest={...state.rally};spark(p.x,p.y,theme.accent,5);}}emit();}
+  function pointerDown(e){if(!running||paused)return;canvas.focus({ preventScroll: true });canvas.setPointerCapture?.(e.pointerId);const p=point(e);pointerMove(e);if(mode==='mine'){strike();held=true;repeat=.16;}else if(mode==='defense'){if(p.x>=120&&p.x<=780&&p.y>=125&&p.y<=535)deploy();}else{const hit=state.allies.filter(a=>distance(a,p)<30).sort((a,b)=>distance(a,p)-distance(b,p))[0];if(hit){group=new Set([hit.id]);notice(hit.name+'已选中，点击目标位置移动。');}else{const target={x:clamp(p.x,100,920),y:clamp(p.y,110,525)},squad=state.allies.filter(a=>!group||group.has(a.id));if(!group)state.rally=target;squad.forEach((a,i)=>a.dest=formationPoint(target,i));say(group?'单兵移动':'全军推进',target.x,target.y-35);spark(p.x,p.y,theme.accent,5);}}emit();}
   function release(){held=false;keys.clear();}
   function pause(){if(running){paused=!paused;last=null;accumulator=0;release();save();options.onPause?.(paused);emit();}}
   function keydown(e){if(!running||/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName))return;const key=String(e.key||'').toLowerCase();if([' ','p','arrowleft','arrowright','arrowup','arrowdown'].includes(key))e.preventDefault();keys.add(key);if(key==='p'&&!e.repeat)pause();if(/^[1-9]$/.test(key)&&!e.repeat){const u=roster[Number(key)-1];if(u){select(u.id);options.onSelect?.(u.id);}}if(mode==='defense'&&!e.repeat){if(key==='arrowleft')cursor.col=Math.max(0,cursor.col-1);if(key==='arrowright')cursor.col=Math.min(5,cursor.col+1);if(key==='arrowup')cursor.row=Math.max(0,cursor.row-1);if(key==='arrowdown')cursor.row=Math.min(4,cursor.row+1);if(key===' ')deploy();}if(mode==='rts'&&key===' '&&!e.repeat)action('primary');}
@@ -192,5 +220,5 @@ export function createBattleGame(canvas, options = {}) {
   function tick(time){const delta=last===null?0:Math.max(0,(time-last)/1000);last=time;if(running&&!paused&&delta>1.5){pause();notice('页面短暂卡顿，已安全暂停。');}if(running&&!paused){accumulator+=delta;while(accumulator+1e-9>=STEP&&running&&!paused){update(STEP);accumulator-=STEP;}}const dt=Math.min(delta,.1);if(!paused){particles.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;});particles=particles.filter(p=>p.life>0);messages.forEach(m=>{m.y-=dt*25;m.life-=dt;});messages=messages.filter(m=>m.life>0);}draw(time);emitClock+=dt;if(emitClock>.25){emitClock=0;emit();}frame=requestAnimationFrame(tick);}
   window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',release);document.addEventListener('visibilitychange',hidden);canvas.addEventListener('pointermove',pointerMove);canvas.addEventListener('pointerdown',pointerDown);canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);
   setTheme(options.theme||{});setRoster(options.roster||[]);frame=requestAnimationFrame(tick);
-  return{start,stop,pause,setMode,setTheme,setRoster,select,deploy,action,save,inspect:()=>({mode,running,paused,elapsed,selected,mine:{...mine},state}),portrait:id=>portraits.get(id)?.canvas.toDataURL(),destroy(){save();cancelAnimationFrame(frame);window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',release);document.removeEventListener('visibilitychange',hidden);canvas.removeEventListener('pointermove',pointerMove);canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',release);canvas.removeEventListener('pointercancel',release);}};
+  return{start,stop,pause,setMode,setTheme,setRoster,select,deploy,action,save,inspect:()=>({mode,running,paused,elapsed,selected,incoming:incoming(),mine:{...mine},state}),portrait:id=>portraits.get(id)?.canvas.toDataURL(),destroy(){save();cancelAnimationFrame(frame);window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',release);document.removeEventListener('visibilitychange',hidden);canvas.removeEventListener('pointermove',pointerMove);canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',release);canvas.removeEventListener('pointercancel',release);}};
 }

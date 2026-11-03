@@ -8,7 +8,7 @@ function runGame(options, run) {
   const names=['window','document','Image','requestAnimationFrame','cancelAnimationFrame'], old=Object.fromEntries(names.map(k=>[k,globalThis[k]]));let callback;
   const noop=()=>{},ctx=new Proxy({},{get:()=>noop,set:()=>true}),events=new Map();
   globalThis.window={addEventListener:noop,removeEventListener:noop};globalThis.document={activeElement:null,addEventListener:noop,removeEventListener:noop};globalThis.Image=class{};globalThis.requestAnimationFrame=cb=>{callback=cb;return 1;};globalThis.cancelAnimationFrame=noop;
-  const canvas={getContext:()=>ctx,focus:noop,addEventListener:(key,value)=>events.set(key,value),removeEventListener:noop,getBoundingClientRect:()=>({left:0,top:0,width:1000,height:600})};let game;
+  const canvas={getContext:()=>ctx,focus:options.focus||noop,addEventListener:(key,value)=>events.set(key,value),removeEventListener:noop,getBoundingClientRect:options.bounds||(()=>({left:0,top:0,width:1000,height:600}))};let game;
   try{game=createBattleGame(canvas,{now:()=>1,random:()=>.5,...options});return run(game,time=>callback(time),events);}finally{game?.destroy();for(const key of names){if(old[key]===undefined)delete globalThis[key];else globalThis[key]=old[key];}}
 }
 test('generated numeric attributes are bounded, skills are validated, and power has a cost',()=>{
@@ -25,6 +25,48 @@ test('slow skill affects actual enemy movement',()=>{
 });
 test('RTS units travel to and capture a resource point',()=>{
   runGame({roster:model.presets()},(game,frame)=>{game.start({mode:'rts'});assert.equal(game.deploy(),true);frame(0);for(let i=1;i<=12*60;i++)frame(i*1000/60);const s=game.inspect().state;assert.ok(s.posts[0].capture>=.95);assert.ok(s.allies[0].x>200);assert.ok(s.energy>0);});
+});
+test('RTS squads spread out, single-unit orders preserve the reinforcement rally, and group orders move it',()=>{
+  const cheap=model.balance({health:35,damage:5,range:80,interval:2.2},'scout');
+  runGame({roster:[cheap]},(game,frame,events)=>{
+    game.start({mode:'rts'});assert.equal(game.deploy(),true);assert.equal(game.deploy(),true);
+    frame(0);for(let i=1;i<=18*60;i++)frame(i*1000/60);
+    const s=game.inspect().state,[a,b]=s.allies;assert.ok(Math.hypot(a.x-b.x,a.y-b.y)>30,'squad members remain individually visible');
+    const rally={...s.rally},otherDest={...b.dest};
+    events.get('pointerdown')({clientX:a.x,clientY:a.y,pointerId:1});
+    events.get('pointerdown')({clientX:250,clientY:490,pointerId:1});
+    assert.deepEqual(s.rally,rally);assert.deepEqual(b.dest,otherDest);assert.deepEqual(a.dest,{x:250,y:490});
+    game.action('primary');events.get('pointerdown')({clientX:650,clientY:410,pointerId:1});
+    assert.deepEqual(s.rally,{x:650,y:410});assert.notDeepEqual(a.dest,b.dest);
+    events.get('pointerdown')({clientX:a.x,clientY:a.y,pointerId:1});a.hp=0;frame(18050);
+    events.get('pointerdown')({clientX:600,clientY:450,pointerId:1});
+    assert.deepEqual(s.rally,{x:600,y:450},'losing the selected unit restores usable group control');
+  });
+});
+test('lane warnings identify the actual next spawn, including hard mode',()=>{
+  for(const difficulty of ['normal','hard'])runGame({roster:model.presets()},(game,frame)=>{
+    game.start({mode:'defense',difficulty});const warning=game.inspect().incoming;
+    frame(0);for(let i=1;i<=3.3*60;i++)frame(i*1000/60);
+    assert.equal(game.inspect().state.enemies[0].row,warning.row);
+    const next=game.inspect().incoming;assert.equal(next.row,(game.inspect().state.wave+game.inspect().state.left)%5);
+  });
+});
+test('focusing the board does not scroll it and displace a tapped defense tile',()=>{
+  let scroll=0;
+  runGame({roster:model.presets(),focus:config=>{if(!config?.preventScroll)scroll+=100},bounds:()=>({left:0,top:scroll,width:1000,height:600})},(game,frame,events)=>{
+    game.start({mode:'defense'});events.get('pointerdown')({clientX:615,clientY:494,pointerId:1});
+    assert.equal(scroll,0);assert.equal(game.inspect().state.allies[0].row,4);assert.equal(game.inspect().state.allies[0].col,4);
+  });
+});
+test('burst increases every third projectile and shields reduce actual incoming damage by thirty percent',()=>{
+  function exchange(ability,enemyAttacks){return runGame({roster:[model.balance({health:200,damage:10,range:150,interval:1,ability},'test')]},(game,frame)=>{
+    game.start({mode:'rts'});game.deploy();const s=game.inspect().state,a=s.allies[0];s.nextSpawn=1000;a.x=400;a.y=300;
+    const enemy={id:'target',x:500,y:300,hp:1000,maxHp:1000,damage:10,range:enemyAttacks?150:0,interval:1,cooldown:.25,speed:0,team:'enemy',slow:0};s.enemies.push(enemy);
+    frame(0);for(let i=1;i<=2.9*60;i++)frame(i*1000/60);
+    return{dealt:1000-enemy.hp,received:a.maxHp-a.hp};
+  });}
+  assert.equal(exchange('none',false).dealt,30);assert.equal(exchange('burst',false).dealt,37);
+  assert.equal(exchange('none',true).received,30);assert.equal(exchange('shield',true).received,21);
 });
 test('a created unit can be hired and its damage / interval produces mining income',()=>{
   function simulate(damage,interval){return runGame({roster:[model.balance({role:'worker',damage,interval},'miner')],mineSave:{...mining.freshMine(),credits:500}},(game,frame)=>{game.start({mode:'mine'});assert.equal(game.deploy(),true);assert.equal(game.inspect().mine.workers[0].count,1);frame(0);for(let i=1;i<=600;i++)frame(i*1000/60);return game.inspect().mine.total;});}

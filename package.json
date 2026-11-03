@@ -1,6 +1,6 @@
 {
   "name": "dream-arcade",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "private": true,
   "type": "module",
   "description": "Natural language units with real stats, skills and art for lane defense, pocket RTS and idle mining",
