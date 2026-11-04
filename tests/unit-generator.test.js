@@ -40,3 +40,8 @@ test('failing to persist the submission marker stops before creating a paid task
   await assert.rejects(generateUnit(job,{key:'test',changed:()=>{throw Error('storage unavailable')},submit:async()=>{submitted++;return{taskId:'must-not-exist'}}}),/storage unavailable/);
   assert.equal(submitted,0);
 });
+test('stage timing survives resume and successful responses update the visible heartbeat',async()=>{
+  const job=fresh();job.unit=JSON.parse(design);job.art={taskId:'existing-art',startedAt:1000};let time=126000,submitted=0;const reports=[];
+  await generateUnit(job,{key:'test',now:()=>time,progress:(label,state,info)=>reports.push({label,state,...info}),submit:async()=>submitted++,query:async(id,opts)=>{opts.onStatus('RUNNING',id);time+=5000;opts.onStatus('SUCCESS',id);return{url:'https://example/art'}},download:async()=> 'data:image/png;base64,AA=='});
+  assert.equal(submitted,0);assert.equal(job.art.startedAt,1000);assert.equal(job.art.checkedAt,131000);assert.equal(reports[0].state,'QUERY');assert.equal(reports.find(r=>r.state==='RUNNING').startedAt,1000);assert.equal(reports.at(-1).state,'DOWNLOAD');
+});

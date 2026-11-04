@@ -17,11 +17,15 @@ export function unitPrompts(idea, design) {
 }
 export async function generateUnit(job, options) {
   if (!validUnitJob(job)) throw Error('单位任务记录不完整，请清除后重新创建。');
-  const { key, signal, changed = () => {}, progress = () => {}, download, submit = (endpoint, payload, opts) => request(endpoint, payload, opts), query = (id, opts) => poll(id, opts) } = options;
+  const { key, signal, changed = () => {}, progress = () => {}, download, now = Date.now, submit = (endpoint, payload, opts) => request(endpoint, payload, opts), query = (id, opts) => poll(id, opts) } = options;
   const model = createUnitModel();
   async function run(part, endpoint, payload, output, label) {
-    signal?.throwIfAborted(); progress(label, 'CREATE');
-    const opts = { key, signal, output, onStatus(status, taskId) { part.taskId = taskId; changed(job); progress(label, status); } };
+    signal?.throwIfAborted();
+    if (!Number.isFinite(part.startedAt)) { part.startedAt = now(); changed(job); }
+    const attemptStartedAt=now();
+    const report = state => progress(label,state,{startedAt:part.startedAt,checkedAt:part.checkedAt,attemptStartedAt,output});
+    report(part.taskId?'QUERY':'CREATE');
+    const opts = { key, signal, output, onStatus(status, taskId) { part.taskId = taskId; part.status=status; part.checkedAt=now(); changed(job); report(status); } };
     if (!part.taskId) {
       if (part.attempted) throw Error('上次提交结果不明，为避免重复计费不会自动再创建。请先查看 RunningHub 调用记录。');
       part.attempted = true; changed(job); const created = await submit(endpoint, payload, opts);
@@ -32,6 +36,7 @@ export async function generateUnit(job, options) {
   if (!job.unit) { const result = await run(job.design, TEXT_MODEL, { prompt: unitPrompts(job.idea).design }, 'text', '1/2 设计属性与技能'); job.unit = { ...model.parse(result.text), id: job.id }; changed(job); }
   if (!job.art.url) { const result = await run(job.art, MODEL, { prompt: unitPrompts(job.idea, job.unit).art, aspectRatio: '1:1' }, 'image', '2/2 绘制单位素材'); job.art.url = result.url; changed(job); }
   let src;
+  progress('保存单位素材','DOWNLOAD',{startedAt:now(),checkedAt:now(),output:'download'});
   try { src = await download(job.art.url, signal); }
   catch (error) { if (!signal?.aborted) { delete job.art.url; changed(job); } throw error; }
   return model.balance({ ...job.unit, source: 'RunningHub AI', sprite: { src, chroma: 'magenta' } }, job.id);
