@@ -8,7 +8,8 @@ export function createMiningRules() {
     s.tool = Math.min(50, Math.floor(s.tool)); s.drones = Math.min(50, Math.floor(s.drones)); s.depth = Math.max(1, Math.min(1000, Math.floor(s.depth)));
     s.credits = Math.min(1e12, s.credits); s.total = Math.min(1e12, s.total); s.blocks = Math.min(4999, Math.floor(s.blocks)); s.depth = 1 + Math.floor(s.blocks / 5);
     s.maxHp = 8 + s.depth * 2; s.hp = Math.max(.01, Math.min(s.maxHp, s.hp));
-    s.workers = Array.isArray(value.workers) ? value.workers.slice(0, 12).filter(w => w && typeof w.id === 'string' && Number.isFinite(w.damage) && Number.isFinite(w.interval) && Number.isFinite(w.count)).map(w => ({ id: w.id.slice(0,60), damage: Math.max(5,Math.min(32,w.damage)), interval: Math.max(.65,Math.min(2.2,w.interval)), count: Math.max(0,Math.min(50,Math.floor(w.count))) })) : [];
+    let active = 0; const seen = new Set();
+    s.workers = Array.isArray(value.workers) ? value.workers.filter(w => w && typeof w.id === 'string' && Number.isFinite(w.damage) && Number.isFinite(w.interval) && Number.isFinite(w.count)).map(w => ({ id: w.id.slice(0,60), unitId: typeof w.unitId==='string'?w.unitId.slice(0,60):w.id.slice(0,60), name: typeof w.name==='string'?w.name.slice(0,24):'', damage: Math.max(5,Math.min(32,w.damage)), interval: Math.max(.65,Math.min(2.2,w.interval)), count: Math.max(0,Math.min(50,Math.floor(w.count))), resting:w.resting===true })).filter(w => { if(!w.count||seen.has(w.id))return false;seen.add(w.id);if(!w.resting){w.resting=active>=12;if(!w.resting)active++;}return true; }) : [];
     return s;
   }
   const cost = (s, kind) => Math.floor((kind === 'tool' ? 20 : 35) * 1.5 ** (kind === 'tool' ? s.tool : s.drones));
@@ -27,7 +28,12 @@ export function createMiningRules() {
     s.credits -= price; s[key]++; return true;
   }
   const clickPower = s => Math.round(2 * (1 + .75 * s.tool) * 1.25 ** s.tool);
-  const autoPower = s => s.drones * (4 + s.tool * .5) * 1.1 ** s.drones + (s.workers || []).reduce((sum,w) => sum + w.damage / w.interval * w.count, 0);
+  const autoPower = s => s.drones * (4 + s.tool * .5) * 1.1 ** s.drones + (s.workers || []).reduce((sum,w) => sum + (w.resting?0:w.damage / w.interval * w.count), 0);
+  function restWorker(s, id, resting) {
+    const worker=s.workers.find(w=>w.id===id);if(!worker)return false;
+    if(!resting&&worker.resting&&s.workers.filter(w=>!w.resting).length>=12)return false;
+    worker.resting=!!resting;return true;
+  }
   function offline(s, now) {
     const seconds = s.savedAt > 0 ? Math.max(0, Math.min(7200, (now - s.savedAt) / 1000)) : 0;
     const earned = seconds >= 30 ? Math.floor(autoPower(s) * seconds / s.maxHp * (5 + s.depth * 2)) : 0;
@@ -36,5 +42,5 @@ export function createMiningRules() {
   }
   // Each row has only one obstacle, leaving two safe lanes.
   const raceRow = random => { const obstacle = Math.min(2, Math.floor(random() * 3)); return { obstacle, pickup: (obstacle + 1 + Math.min(1, Math.floor(random() * 2))) % 3 }; };
-  return { freshMine, restoreMine, cost, hit, buy, clickPower, autoPower, offline, raceRow };
+  return { freshMine, restoreMine, cost, hit, buy, clickPower, autoPower, offline, restWorker, raceRow };
 }

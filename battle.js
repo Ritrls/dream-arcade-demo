@@ -5,7 +5,7 @@ export function createBattleGame(canvas, options = {}) {
   const model = createUnitModel(), mining = createMiningRules(), ctx = canvas.getContext('2d');
   const W = 1000, H = 600, STEP = 1 / 60, now = options.now || Date.now, rng = options.random || Math.random;
   canvas.width = W; canvas.height = H;
-  let mode = options.mode || 'defense', theme = {}, roster = [], portraits = new Map(), sources = new Map(), image, selected = '', state, running = false, paused = false, last = null, accumulator = 0, frame, elapsed = 0, emitClock = 0, saveClock = 0;
+  let mode = options.mode || 'defense', theme = {}, roster = [], visuals = new Map(), portraits = new Map(), sources = new Map(), image, selected = '', state, running = false, paused = false, last = null, accumulator = 0, frame, elapsed = 0, emitClock = 0, saveClock = 0;
   let mine = mining.restoreMine(options.mineSave), held = false, repeat = 0, cursor = { row: 2, col: 2 }, group = null, nextId = 1, particles = [], messages = [];
   const keys = new Set(), clamp = (n, a, b) => Math.max(a, Math.min(b, n));
   const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -26,7 +26,7 @@ export function createBattleGame(canvas, options = {}) {
     const key = JSON.stringify(u.sprite);
     if (portraits.get(u.id)?.key === key) return;
     loadImage(u.sprite.src).then(img => {
-      if (JSON.stringify(roster.find(r => r.id === u.id)?.sprite) !== key) return;
+      if (JSON.stringify(visuals.get(u.id)?.sprite) !== key) return;
       const cut = document.createElement('canvas'); cut.width = cut.height = 192; const c = cut.getContext('2d', { willReadFrequently: true });
       const isSheet = Number.isInteger(u.sprite.cell), sw = isSheet ? img.width / 2 : img.width, sh = isSheet ? img.height / 2 : img.height, cell = u.sprite.cell || 0;
       c.imageSmoothingEnabled = false; c.drawImage(img, isSheet ? cell % 2 * sw : 0, isSheet ? Math.floor(cell / 2) * sh : 0, sw, sh, 0, 0, 192, 192);
@@ -38,7 +38,7 @@ export function createBattleGame(canvas, options = {}) {
       portraits.set(u.id, { key, canvas: cut }); options.onPortrait?.(u.id, cut.toDataURL());
     }).catch(() => notice('一张单位素材未能载入，正在使用备用图标。'));
   }
-  function setRoster(values) { roster = values.slice(0, 12).map(u => model.balance(u, u.id)); if (!roster.some(u => u.id === selected)) selected = roster[0]?.id || ''; roster.forEach(loadPortrait); emit(); }
+  function setRoster(values, reserves = []) { roster = values.slice(0, 12).map(u => model.balance(u, u.id)); visuals = new Map([...reserves,...roster].map(u=>[u.id,u])); if (!roster.some(u => u.id === selected)) selected = roster[0]?.id || ''; [...visuals.values()].forEach(loadPortrait); emit(); }
   function setTheme(value) { theme = { accent: '#bbf4d7', sky: '#142535', ...value }; image = null; if (theme.image) { const src = theme.image; loadImage(src).then(img => { if (theme.image === src) image = img; }).catch(() => {}); } }
   function sprite(u, x, y, size = 76) {
     const portrait = portraits.get(u.id)?.canvas;
@@ -54,7 +54,8 @@ export function createBattleGame(canvas, options = {}) {
   function save() { mine.savedAt = now(); options.onSave?.({ ...mine, workers: (mine.workers || []).map(w => ({ ...w })) }); }
   const offlineGain = mining.offline(mine, now()); if (offlineGain) { notice(`离线采集带回 ${offlineGain} 资源，欢迎回来！`); save(); }
   function energy() { return mode === 'mine' ? mine.credits : state?.energy || 0; }
-  function deployCost(u) { return mode === 'mine' ? model.miningCost(u, mine.workers?.find(w => w.id === u.id)?.count || 0) : u.cost; }
+  function matchingWorker(u) { return mine.workers.find(w => (w.unitId||w.id) === u.id && w.damage === u.damage && w.interval === u.interval); }
+  function deployCost(u) { return mode === 'mine' ? model.miningCost(u, matchingWorker(u)?.count || 0) : u.cost; }
   function incoming() {
     if (!state || mode !== 'defense' || !running) return null;
     if (state.left > 0) return { row: (state.wave + state.left) % 5, seconds: Math.max(1, Math.ceil(state.nextSpawn)) };
@@ -82,10 +83,10 @@ export function createBattleGame(canvas, options = {}) {
     const u = unit(), price = deployCost(u);
     if (energy() < price) { notice(`还差 ${Math.ceil(price - energy())} ${mode === 'mine' ? resource() : '能量'}。`); return false; }
     if (mode === 'mine') {
-      const existing = mine.workers.find(w => w.id === u.id);
-      if (!existing && mine.workers.length >= 12) { notice('矿场最多雇佣 12 类队员，可以继续增加已有队员的数量。'); return false; }
-      if (existing && existing.count >= 50) return false;
-      mine.credits -= price; if (existing) existing.count++; else mine.workers.push({ id: u.id, damage: u.damage, interval: u.interval, count: 1 });
+      const existing = matchingWorker(u);
+      if ((!existing || existing.resting) && mine.workers.filter(w=>!w.resting).length >= 12) { notice('最多同时安排 12 类队员采集；在矿场班表让一类队员休息，即可换班。'); return false; }
+      if (existing && existing.count >= 50) { notice('这个班组已有 50 位队员，可以安排其他队员加入。'); return false; }
+      mine.credits -= price; if (existing) { existing.count++; existing.resting=false; } else mine.workers.push({ id: mine.workers.some(w=>w.id===u.id)?u.id.slice(0,40)+'~'+u.damage+'-'+u.interval:u.id, unitId:u.id, name:u.name, damage: u.damage, interval: u.interval, count: 1, resting:false });
       say(`${u.name}加入采集`, 500, 215); save(); emit(); return true;
     }
     if (state.allies.length >= 24) { notice('场上最多 24 名队员，等一等前线的战友。'); return false; }
@@ -157,6 +158,7 @@ export function createBattleGame(canvas, options = {}) {
     else if (elapsed >= 150) finish(false, '战役时间到，核心未被攻破。下次试试远程与守卫协同。');
   }
   function strike() { if (!running || paused || mode !== 'mine') return; const old = mine.depth, result = mining.hit(mine, mining.clickPower(mine)); state.swing = .22; spark(500, 325, theme.accent, result.broken ? 22 : 5); say(result.gained ? `+${result.gained} ${resource()}` : `-${mining.clickPower(mine)}`, 500 + (Math.random() - .5) * 65, 265); if (mine.depth > old) say(`第 ${mine.depth} 层！`, 500, 190, '#ffe6aa'); emit(); }
+  function restWorker(id, resting) { if(!mining.restWorker(mine,id,resting)){notice('同时采集已达 12 类，请先安排另一类队员休息。');return false;} save();emit();return true; }
   function updateMine(dt) { state.swing = Math.max(0, state.swing - dt); repeat -= dt; if ((held || keys.has(' ')) && repeat <= 0) { strike(); repeat = .16; } const result = mining.hit(mine, mining.autoPower(mine) * dt); if (result.broken) { say(`采集 +${result.gained}`, 500, 245); spark(500,325,theme.accent); } }
   function update(dt) {
     elapsed += dt;
@@ -191,7 +193,7 @@ export function createBattleGame(canvas, options = {}) {
       if(running)text(group?'单兵指挥 · 点地图移动 / 全军集结切回':'全军指挥 · 点地图推进 / 点队员单选',500,578,16,'#d0e4df','center');
     } else {
       panel(220,140,560,350,'#142439a9',20);const rare=(mine.blocks+1)%10===0;ctx.shadowColor=rare?'#ffe2a2':theme.accent;ctx.shadowBlur=24;ctx.fillStyle=rare?'#ffdaa0':'#9de8df';ctx.save();ctx.translate(500+(state?.swing||0)*Math.sin(time/18)*20,320);ctx.rotate(Math.PI/4);ctx.fillRect(-62,-62,124,124);ctx.fillStyle=rare?'#bd9361':'#4c9cae';ctx.fillRect(-35,-35,70,70);ctx.restore();ctx.shadowBlur=0;text(rare?'✦ 稀有矿 · 四倍收益':resource()+'矿脉',500,188,22,rare?'#ffe2a2':'#e0eef3','center');bar(350,445,300,mine.hp/mine.maxHp,theme.accent);text(Math.ceil(mine.hp)+' / '+mine.maxHp,500,480,16,'#d0e0ec','center');
-      mine.workers.forEach((w,i)=>{const u=roster.find(u=>u.id===w.id);if(u){const x=260+i%6*95,y=520+Math.floor(i/6)*42;sprite(u,x,y,53);text('×'+w.count,x+19,y+20,12,'#d7e8ee','center');}});text('点击 / 按住矿石开采，雇佣单位后自动生产',500,105,18,'#c6d8e8','center');
+      mine.workers.filter(w=>!w.resting).forEach((w,i)=>{const u=visuals.get(w.unitId||w.id)||{id:w.unitId||w.id,name:w.name||'老队员'};const x=260+i%6*95,y=520+Math.floor(i/6)*42;sprite(u,x,y,53);text('×'+w.count,x+19,y+20,12,'#d7e8ee','center');});text('点击 / 按住矿石开采，雇佣单位后自动生产',500,105,18,'#c6d8e8','center');
     }
     if(state && mode!=='mine'){state.allies.forEach(drawUnit);state.enemies.forEach(enemySprite);for(const b of state.bullets){ctx.fillStyle=b.color;ctx.shadowColor=b.color;ctx.shadowBlur=9;ctx.beginPath();ctx.arc(b.x,b.y,5,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;}}
     panel(16,15,968,55,'#0a1627ed');
@@ -211,7 +213,7 @@ export function createBattleGame(canvas, options = {}) {
   }
   function point(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H};}
   function pointerMove(e){const p=point(e);cursor={row:clamp(Math.floor((p.y-125)/82),0,4),col:clamp(Math.floor((p.x-120)/110),0,5)};}
-  function pointerDown(e){if(!running||paused)return;canvas.focus({ preventScroll: true });canvas.setPointerCapture?.(e.pointerId);const p=point(e);pointerMove(e);if(mode==='mine'){strike();held=true;repeat=.16;}else if(mode==='defense'){if(p.x>=120&&p.x<=780&&p.y>=125&&p.y<=535)deploy();}else{const hit=state.allies.filter(a=>distance(a,p)<30).sort((a,b)=>distance(a,p)-distance(b,p))[0];if(hit){group=new Set([hit.id]);notice(hit.name+'已选中，点击目标位置移动。');}else{const target={x:clamp(p.x,100,920),y:clamp(p.y,110,525)},squad=state.allies.filter(a=>!group||group.has(a.id));if(!group)state.rally=target;squad.forEach((a,i)=>a.dest=formationPoint(target,i));say(group?'单兵移动':'全军推进',target.x,target.y-35);spark(p.x,p.y,theme.accent,5);}}emit();}
+  function pointerDown(e){if(!running||paused)return;canvas.focus({ preventScroll: true });canvas.setPointerCapture?.(e.pointerId);const p=point(e);pointerMove(e);if(mode==='mine'){strike();held=true;repeat=.16;}else if(mode==='defense'){if(p.x>=120&&p.x<=780&&p.y>=125&&p.y<=535)deploy();}else{const hit=state.allies.filter(a=>distance(a,p)<30).sort((a,b)=>distance(a,p)-distance(b,p))[0];if(hit){group=new Set([hit.id]);if(roster.some(u=>u.id===hit.unitId))selected=hit.unitId;notice(hit.name+'已选中，点击目标位置移动。');}else{const target={x:clamp(p.x,100,920),y:clamp(p.y,110,525)},squad=state.allies.filter(a=>!group||group.has(a.id));if(!group)state.rally=target;squad.forEach((a,i)=>a.dest=formationPoint(target,i));say(group?'单兵移动':'全军推进',target.x,target.y-35);spark(p.x,p.y,theme.accent,5);}}emit();}
   function release(){held=false;keys.clear();}
   function pause(){if(running){paused=!paused;last=null;accumulator=0;release();save();options.onPause?.(paused);emit();}}
   function keydown(e){if(!running||/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName))return;const key=String(e.key||'').toLowerCase();if([' ','p','arrowleft','arrowright','arrowup','arrowdown'].includes(key))e.preventDefault();keys.add(key);if(key==='p'&&!e.repeat)pause();if(/^[1-9]$/.test(key)&&!e.repeat){const u=roster[Number(key)-1];if(u){select(u.id);options.onSelect?.(u.id);}}if(mode==='defense'&&!e.repeat){if(key==='arrowleft')cursor.col=Math.max(0,cursor.col-1);if(key==='arrowright')cursor.col=Math.min(5,cursor.col+1);if(key==='arrowup')cursor.row=Math.max(0,cursor.row-1);if(key==='arrowdown')cursor.row=Math.min(4,cursor.row+1);if(key===' ')deploy();}if(mode==='rts'&&key===' '&&!e.repeat)action('primary');}
@@ -219,6 +221,6 @@ export function createBattleGame(canvas, options = {}) {
   function hidden(){if(document.hidden){release();save();if(running&&!paused)pause();}}
   function tick(time){const delta=last===null?0:Math.max(0,(time-last)/1000);last=time;if(running&&!paused&&delta>1.5){pause();notice('页面短暂卡顿，已安全暂停。');}if(running&&!paused){accumulator+=delta;while(accumulator+1e-9>=STEP&&running&&!paused){update(STEP);accumulator-=STEP;}}const dt=Math.min(delta,.1);if(!paused){particles.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;});particles=particles.filter(p=>p.life>0);messages.forEach(m=>{m.y-=dt*25;m.life-=dt;});messages=messages.filter(m=>m.life>0);}draw(time);emitClock+=dt;if(emitClock>.25){emitClock=0;emit();}frame=requestAnimationFrame(tick);}
   window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',release);document.addEventListener('visibilitychange',hidden);canvas.addEventListener('pointermove',pointerMove);canvas.addEventListener('pointerdown',pointerDown);canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);
-  setTheme(options.theme||{});setRoster(options.roster||[]);frame=requestAnimationFrame(tick);
-  return{start,stop,pause,setMode,setTheme,setRoster,select,deploy,action,save,inspect:()=>({mode,running,paused,elapsed,selected,incoming:incoming(),mine:{...mine},state}),portrait:id=>portraits.get(id)?.canvas.toDataURL(),destroy(){save();cancelAnimationFrame(frame);window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',release);document.removeEventListener('visibilitychange',hidden);canvas.removeEventListener('pointermove',pointerMove);canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',release);canvas.removeEventListener('pointercancel',release);}};
+  setTheme(options.theme||{});setRoster(options.roster||[],options.reserves||[]);frame=requestAnimationFrame(tick);
+  return{start,stop,pause,setMode,setTheme,setRoster,select,deploy,action,save,restWorker,inspect:()=>({mode,running,paused,elapsed,selected,incoming:incoming(),mine:{...mine},state}),portrait:id=>portraits.get(id)?.canvas.toDataURL(),destroy(){save();cancelAnimationFrame(frame);window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',release);document.removeEventListener('visibilitychange',hidden);canvas.removeEventListener('pointermove',pointerMove);canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',release);canvas.removeEventListener('pointercancel',release);}};
 }

@@ -7,7 +7,7 @@ if (dirname(outputDirectory) !== projectDirectory || !outputDirectory.endsWith('
 // Only this project's generated output is removed; source and user data are outside it.
 await rm(outputDirectory, { recursive: true, force: true });
 await mkdir(outputDirectory, { recursive: true });
-for (const file of ['index.html', 'style.css', 'lab.js', 'battle.js', 'unit-model.js', 'mining-rules.js', 'unit-generator.js', 'unit-store.js', 'portable.js', 'runninghub.js']) await copyFile(resolve(projectDirectory,file), resolve(outputDirectory,file));
+for (const file of ['index.html', 'style.css', 'lab.js', 'battle.js', 'unit-model.js', 'mining-rules.js', 'unit-generator.js', 'unit-library.js', 'unit-store.js', 'portable.js', 'runninghub.js']) await copyFile(resolve(projectDirectory,file), resolve(outputDirectory,file));
 await cp(resolve(projectDirectory,'assets'), resolve(outputDirectory,'assets'), { recursive: true });
 await copyFile(resolve(projectDirectory,'docs/preview.png'), resolve(outputDirectory,'preview.png'));
 console.log('Built static site in dist/');

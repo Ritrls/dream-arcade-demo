@@ -80,6 +80,24 @@ test('5fps and 60fps preserve mining and battle timing; pauses exclude backgroun
 test('offline mining is bounded, paid only once, and restores hired generated workers',()=>{
   const s=mining.restoreMine({...mining.freshMine(),savedAt:100000,workers:[{id:'test',damage:20,interval:1,count:2}]});const copy=structuredClone(s);assert.ok(mining.autoPower(s)>=40);const gain=mining.offline(s,100000+24*3600000);assert.equal(gain,mining.offline(copy,100000+2*3600000));assert.equal(mining.offline(s,s.savedAt),0);assert.equal(s.depth,1);
 });
+test('mine shifts free a type slot without losing workers and exclude resting crews from offline income',()=>{
+  const workers=Array.from({length:14},(_,i)=>({id:'crew-'+i,name:'班组'+i,damage:10,interval:1,count:2}));
+  const mine=mining.restoreMine({...mining.freshMine(),workers,savedAt:100000});assert.equal(mine.workers.length,14);assert.equal(mine.workers.filter(w=>!w.resting).length,12);assert.equal(mining.autoPower(mine),240);
+  assert.equal(mining.restWorker(mine,'crew-12',false),false);assert.equal(mining.restWorker(mine,'crew-0',true),true);assert.equal(mining.autoPower(mine),220);
+  assert.equal(mining.restWorker(mine,'crew-12',false),true);assert.equal(mining.autoPower(mine),240);assert.equal(mine.workers[0].count,2);
+  for(const w of mine.workers)mining.restWorker(mine,w.id,true);
+  assert.equal(mining.offline(mine,100000+3600000),0);assert.equal(mining.restoreMine(mine).workers.length,14);
+});
+test('archiving a unit preserves its mining output and later designs recruit at their own true efficiency',()=>{
+  const a=model.balance({name:'旧班组',damage:10,interval:1},'custom');
+  runGame({roster:[a],mineSave:{...mining.freshMine(),credits:1000}},(game,frame)=>{
+    game.start({mode:'mine'});game.deploy();game.setRoster(model.presets(),[a]);
+    assert.equal(mining.autoPower(game.inspect().mine),10);assert.equal(game.inspect().mine.workers[0].name,'旧班组');
+    const b=model.balance({...a,damage:20},a.id);game.setRoster([b],[a]);game.select(b.id);game.deploy();
+    const workers=game.inspect().mine.workers;assert.equal(workers.length,2);assert.notEqual(workers[0].id,workers[1].id);assert.equal(mining.autoPower(game.inspect().mine),30);
+    game.restWorker(workers[0].id,true);assert.equal(mining.autoPower(game.inspect().mine),20);game.restWorker(workers[0].id,false);assert.equal(mining.autoPower(game.inspect().mine),30);
+  });
+});
 test('normal defense can be completed by covering the five lanes',()=>{
   let result;
   runGame({roster:model.presets(),onEnd:r=>result=r},(game,frame)=>{

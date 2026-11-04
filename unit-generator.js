@@ -2,6 +2,13 @@ import { request, poll, MODEL } from './runninghub.js';
 import { createUnitModel } from './unit-model.js';
 export const TEXT_MODEL = 'rhart-text-qwen-27b/chat';
 export function validUnitJob(job) { return !!job && typeof job.idea === 'string' && typeof job.id === 'string' && job.design && job.art && typeof job.design === 'object' && typeof job.art === 'object'; }
+export function attachUnitTask(job, taskId) {
+  if (!validUnitJob(job) || typeof taskId!=='string' || !/^[A-Za-z0-9_-]{4,100}$/.test(taskId)) throw Error('请输入平台调用记录里的有效任务编号。');
+  const part = job.unit ? job.art : job.design;
+  if (part.taskId && !part.recovered) throw Error('这个阶段已有任务编号，请直接继续制造。');
+  part.taskId = taskId; part.attempted = true; part.recovered = true;
+  return job;
+}
 export function unitPrompts(idea, design) {
   return {
     design: '你是迷你策略游戏的原创单位设计师。按描述生成一名单位，只输出JSON对象，不要markdown或解释。字段：name(中文<=10字),description(中文<=45字),role(assault/guard/sniper/worker),health(35-240整数),damage(5-32整数),range(80-260整数),interval(0.65-2.2攻击间隔秒),speed(30-90整数),ability(none/slow/burst/shield),spritePrompt(英文外观描述<=500字符)。技能只能选一个，体现描述中的优缺点。description只描述外观、性格与已支持的技能，不得声称具有其他能力。不要代码或外部链接。单位描述：' + idea,
@@ -24,7 +31,9 @@ export async function generateUnit(job, options) {
   }
   if (!job.unit) { const result = await run(job.design, TEXT_MODEL, { prompt: unitPrompts(job.idea).design }, 'text', '1/2 设计属性与技能'); job.unit = { ...model.parse(result.text), id: job.id }; changed(job); }
   if (!job.art.url) { const result = await run(job.art, MODEL, { prompt: unitPrompts(job.idea, job.unit).art, aspectRatio: '1:1' }, 'image', '2/2 绘制单位素材'); job.art.url = result.url; changed(job); }
-  const src = await download(job.art.url, signal);
+  let src;
+  try { src = await download(job.art.url, signal); }
+  catch (error) { if (!signal?.aborted) { delete job.art.url; changed(job); } throw error; }
   return model.balance({ ...job.unit, source: 'RunningHub AI', sprite: { src, chroma: 'magenta' } }, job.id);
 }
 
