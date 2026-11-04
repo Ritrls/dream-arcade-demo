@@ -7,7 +7,7 @@ const model = createUnitModel(), mining = createMiningRules();
 function runGame(options, run) {
   const names=['window','document','Image','requestAnimationFrame','cancelAnimationFrame'], old=Object.fromEntries(names.map(k=>[k,globalThis[k]]));let callback;
   const noop=()=>{},ctx=new Proxy({},{get:()=>noop,set:()=>true}),events=new Map();
-  globalThis.window={addEventListener:noop,removeEventListener:noop};globalThis.document={activeElement:null,addEventListener:noop,removeEventListener:noop};globalThis.Image=class{};globalThis.requestAnimationFrame=cb=>{callback=cb;return 1;};globalThis.cancelAnimationFrame=noop;
+  globalThis.window={addEventListener:(key,value)=>events.set('window:'+key,value),removeEventListener:noop};globalThis.document={activeElement:null,addEventListener:noop,removeEventListener:noop};globalThis.Image=class{};globalThis.requestAnimationFrame=cb=>{callback=cb;return 1;};globalThis.cancelAnimationFrame=noop;
   const canvas={getContext:()=>ctx,focus:options.focus||noop,addEventListener:(key,value)=>events.set(key,value),removeEventListener:noop,getBoundingClientRect:options.bounds||(()=>({left:0,top:0,width:1000,height:600}))};let game;
   try{game=createBattleGame(canvas,{now:()=>1,random:()=>.5,...options});return run(game,time=>callback(time),events);}finally{game?.destroy();for(const key of names){if(old[key]===undefined)delete globalThis[key];else globalThis[key]=old[key];}}
 }
@@ -76,6 +76,16 @@ test('5fps and 60fps preserve mining and battle timing; pauses exclude backgroun
   function simulate(fps,mode){return runGame({roster:model.presets(),mineSave:{...mining.freshMine(),drones:2}},(game,frame)=>{game.start({mode});frame(0);for(let i=1;i<=fps*10;i++)frame(i*1000/fps);const s=game.inspect();return{elapsed:s.elapsed,hp:s.mine.hp,blocks:s.mine.blocks,enemies:s.state.enemies.map(e=>e.x)};});}
   for(const mode of ['mine','defense']){const a=simulate(5,mode),b=simulate(60,mode);assert.ok(Math.abs(a.elapsed-b.elapsed)<1e-6);assert.equal(a.blocks,b.blocks);assert.ok(Math.abs(a.hp-b.hp)<1e-6);assert.deepEqual(a.enemies,b.enemies);}
   runGame({},(game,frame)=>{game.start({mode:'mine'});frame(0);frame(1000);game.pause();frame(100000);game.pause();frame(200000);frame(201000);assert.ok(Math.abs(game.inspect().elapsed-2)<1e-6);frame(204000);assert.equal(game.inspect().paused,true);});
+});
+test('Space on interface controls keeps native activation; Space on the board still mines and releases',()=>{
+  runGame({roster:model.presets()},(game,frame,events)=>{
+    game.start({mode:'mine'});frame(0);let prevented=0;const key={key:' ',preventDefault:()=>prevented++};
+    document.activeElement={tagName:'BUTTON'};events.get('window:keydown')(key);frame(1000);
+    assert.equal(prevented,0);assert.equal(game.inspect().mine.blocks,0);
+    document.activeElement={tagName:'CANVAS'};events.get('window:keydown')(key);frame(2000);
+    assert.equal(prevented,1);assert.ok(game.inspect().mine.blocks>0);
+    events.get('window:keyup')(key);const hp=game.inspect().mine.hp;frame(3000);assert.equal(game.inspect().mine.hp,hp);
+  });
 });
 test('offline mining is bounded, paid only once, and restores hired generated workers',()=>{
   const s=mining.restoreMine({...mining.freshMine(),savedAt:100000,workers:[{id:'test',damage:20,interval:1,count:2}]});const copy=structuredClone(s);assert.ok(mining.autoPower(s)>=40);const gain=mining.offline(s,100000+24*3600000);assert.equal(gain,mining.offline(copy,100000+2*3600000));assert.equal(mining.offline(s,s.savedAt),0);assert.equal(s.depth,1);

@@ -40,8 +40,8 @@ $('start').onclick=()=>{$('result').textContent='';$('notice').textContent='';ga
 $('pause').onclick=()=>game.pause();$('deploy').onclick=()=>game.deploy();$('tool').onclick=()=>game.action('tool');
 const primary=$('primary');primary.onpointerdown=e=>{e.preventDefault();primary.setPointerCapture(e.pointerId);game.action('primary');if(config.mode==='mine')game.action('hold',true)};
 primary.onpointerup=primary.onpointercancel=primary.onlostpointercapture=()=>game.action('hold',false);
-primary.onkeydown=e=>{if(e.key==='Enter'&&!e.repeat){e.preventDefault();game.action('primary');if(config.mode==='mine')game.action('hold',true)}};
-primary.onkeyup=e=>{if(e.key==='Enter')game.action('hold',false)};
+primary.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&!e.repeat){e.preventDefault();game.action('primary');if(config.mode==='mine')game.action('hold',true)}};
+primary.onkeyup=e=>{if(e.key==='Enter'||e.key===' ')game.action('hold',false)};
 window.addEventListener('pagehide',()=>game.save());
 <\/script></html>`;
 }
