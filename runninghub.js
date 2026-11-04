@@ -6,8 +6,9 @@ export class RunningHubError extends Error {
   constructor(message, taskId = '') { super(message); this.name = 'RunningHubError'; this.taskId = taskId; }
 }
 export function parseResult(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new RunningHubError('RunningHub 返回了无法识别的响应，请继续查询已有任务。');
   const data = raw.data && typeof raw.data === 'object' ? raw.data : raw;
-  return { taskId: String(data.taskId || data.task_id || ''), status: String(data.status || '').toUpperCase(), results: data.results || [], raw };
+  return { taskId: String(data.taskId || data.task_id || ''), status: String(data.status || '').toUpperCase(), results: Array.isArray(data.results) ? data.results : [], raw };
 }
 const delay = (ms, signal) => new Promise((resolve, reject) => {
   signal?.throwIfAborted();
@@ -29,7 +30,13 @@ export async function request(path, payload, { key, signal, fetcher = fetch, ret
     }
     if (retry && (response.status === 429 || response.status >= 500) && attempt < 2) { await sleeper(1500 * 2 ** attempt, signal); continue; }
     let raw;
-    try { raw = await response.json(); } catch { throw new RunningHubError('RunningHub 返回了无法识别的响应，请稍后查询任务。'); }
+    try {
+      raw = await response.json();
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw Error('Invalid response object');
+    } catch {
+      if (retry && response.ok && attempt < 2) { await sleeper(1500 * 2 ** attempt, signal); continue; }
+      throw new RunningHubError('RunningHub 返回了无法识别的响应，请继续查询已有任务。');
+    }
     if (!response.ok || (raw.code != null && String(raw.code) !== '0') || raw.errorCode) {
       const hints = { 401: 'API Key 无效或已过期。', 403: 'API Key 没有权限；模型接口需要企业共享 Key。', 429: '请求较多，请稍后再试。' };
       throw new RunningHubError(hints[response.status] || String(raw.errorMessage || raw.msg || raw.message || `请求失败（${response.status}）`).split(key).join('[已隐藏]'));

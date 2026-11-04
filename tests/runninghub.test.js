@@ -33,3 +33,16 @@ test('missing key is rejected; business errors redact key; wrapped task ids acce
 test('creation response loss is not retried to avoid duplicate billing', async () => {
   let count = 0; await assert.rejects(generateScene('forest', { key: 'key', fetcher: async () => { count++; throw new Error('network'); } })); assert.equal(count, 1);
 });
+test('polling tolerates temporary invalid JSON and null responses without resubmitting',async()=>{
+  let calls=0;const result=await poll('paid-task',{key:'test',sleeper:async()=>{},fetcher:async url=>{
+    assert.ok(url.endsWith('/query'));calls++;
+    if(calls===1)return{ok:true,status:200,json:async()=>{throw Error('truncated JSON')}};
+    if(calls===2)return reply(null);
+    return reply({status:'SUCCESS',results:[{url:'https://example/art.png'}]});
+  }});assert.equal(calls,3);assert.equal(result.taskId,'paid-task');
+});
+test('malformed creation responses are never retried and exhausted queries retain their task ID',async()=>{
+  let created=0;await assert.rejects(request('model',{}, {key:'test',fetcher:async()=>{created++;return reply(null)}}),/无法识别/);assert.equal(created,1);
+  await assert.rejects(poll('paid-task',{key:'test',sleeper:async()=>{},fetcher:async()=>reply(null)}),e=>e.taskId==='paid-task'&&/无法识别/.test(e.message));
+  assert.deepEqual(parseResult({status:'SUCCESS',results:{unexpected:true}}).results,[]);
+});
