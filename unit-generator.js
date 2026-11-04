@@ -1,4 +1,4 @@
-import { request, poll, MODEL } from './runninghub.js';
+import { request, poll, MODEL } from './runninghub.js?v=3.2.2';
 import { createUnitModel } from './unit-model.js';
 export const TEXT_MODEL = 'rhart-text-qwen-27b/chat';
 export function validUnitJob(job) { return !!job && typeof job.idea === 'string' && typeof job.id === 'string' && job.design && job.art && typeof job.design === 'object' && typeof job.art === 'object'; }

@@ -1,9 +1,9 @@
 import { createUnitModel } from './unit-model.js';
-import { createBattleGame } from './battle.js';
-import { generateUnit, draftUnit, validUnitJob, attachUnitTask } from './unit-generator.js?v=3.2.1';
+import { createBattleGame } from './battle.js?v=3.2.2';
+import { generateUnit, draftUnit, validUnitJob, attachUnitTask } from './unit-generator.js?v=3.2.2';
 import { unitStore } from './unit-store.js';
 import { normalizeLibrary, addToLibrary, archiveUnit, creationRoom } from './unit-library.js';
-import { makePortable } from './portable.js';
+import { makePortable } from './portable.js?v=3.2.2';
 import { generationFeedback } from './generation-feedback.js';
 const $=id=>document.getElementById(id), model=createUnitModel();
 const worlds={forest:{id:'forest',name:'月光秘境',image:'assets/moonlight-forest.png',accent:'#bbf4d7',sky:'#142535',names:{resource:'月晶'}},city:{id:'city',name:'霓虹边境',image:'assets/neon-background.png',accent:'#ffd09d',sky:'#30243c',names:{resource:'能量芯'}}};

@@ -1,6 +1,6 @@
 import { createUnitModel } from './unit-model.js';
 import { createMiningRules } from './mining-rules.js';
-import { createBattleGame } from './battle.js';
+import { createBattleGame } from './battle.js?v=3.2.2';
 const json = value => JSON.stringify(value).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
 export function makePortable(theme, roster, config, mineSave, reserves = []) {
   return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>造梦街机 · 我的阵容</title>

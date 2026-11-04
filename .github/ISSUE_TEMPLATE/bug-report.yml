@@ -1,0 +1,43 @@
+name: 问题反馈
+description: 报告玩法、单位生成、手机操作或导出异常
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: "请勿粘贴 API Key、GitHub Token 或 Cookie。生成异常可填写任务编号，截图请先遮盖敏感信息。"
+  - type: dropdown
+    id: area
+    attributes:
+      label: 出现问题的部分
+      options:
+        - 庭院守卫
+        - 口袋战场
+        - 增量矿场
+        - AI 单位生成 / 任务恢复
+        - 单位档案 / 离线导出
+        - 页面与操作
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: "1. 打开…\n2. 选择…\n3. 点击…"
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: 期望与实际表现
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 浏览器与设备
+      placeholder: 例如 Windows / Edge，或 iPhone / Safari
+  - type: input
+    id: task
+    attributes:
+      label: RunningHub 任务编号（可选）
+      description: 仅填写任务编号，不要填写 API Key。

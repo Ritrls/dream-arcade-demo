@@ -4,7 +4,13 @@
 
 **[在线试玩 →](https://ritrls.github.io/dream-arcade-demo/)**
 
+[![检查与部署](https://github.com/Ritrls/dream-arcade-demo/actions/workflows/pages.yml/badge.svg)](https://github.com/Ritrls/dream-arcade-demo/actions/workflows/pages.yml)
+
+[更新记录](CHANGELOG.md) · [参与改进](CONTRIBUTING.md) · [反馈问题](https://github.com/Ritrls/dream-arcade-demo/issues/new?template=bug-report.yml)
+
 ![项目预览](docs/preview.png)
+
+第一次来？打开试玩链接，载入“免费体验 AI 成品”，选一个模板就能开玩。自由生成专属单位时，再连接你自己的 RunningHub。
 
 ## 三种可以真正玩的模板
 
