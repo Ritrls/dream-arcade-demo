@@ -1,5 +1,13 @@
 # ✦ 造梦街机 · 自然语言单位工坊
 
+**赞助支持 · SPONSOR — RunningHub API**
+
+[![RunningHub API — Access 400+ leading AI models via API. Test the API for Free.](assets/sponsors/runninghub-api-banner.png)](https://www.runninghub.ai/call-api?source=github)
+
+本项目由 **RunningHub** 提供支持。单一接口直连 400+ 主流大模型，支持 LLM、多模态、工作流 API 与 AI 应用。
+
+**[免费测试 RunningHub API →](https://www.runninghub.ai/call-api?source=github)** · 折扣获取与免费测试联系：[zhenyuedong@haima.me](mailto:zhenyuedong@haima.me)
+
 **脑洞成兵，马上开战。** 用一句话创造队员，生成专属素材、属性和技能，再带进三种经典玩法。
 
 **[在线试玩 →](https://ritrls.github.io/dream-arcade-demo/)**
@@ -63,6 +71,20 @@ npm run build
 检查覆盖属性边界与费用、技能效果、真实伤害、占点、生成矿工产量、低帧率一致性、离线结算、接口生命周期、生成恢复及离线导出。
 
 ## RunningHub 接入
+
+### 赞助商介绍
+
+以下为 RunningHub 提供的官方宣传资料；模型、价格及免费测试条件以平台当前说明为准。
+
+[![RunningHub API 官方介绍：模型接入、按需付费、在线工具及免费测试联系方式](assets/sponsors/runninghub-api-details.png)](https://www.runninghub.ai/call-api?source=github)
+
+Access **400+ leading AI models** via API — Seedance, Kling, MiniMax, Nano Banana, Veo, and more — at highly competitive prices.
+
+High-Concurrency Support · Free API Testing · End-to-End Encryption
+
+**[Test the API for Free →](https://www.runninghub.ai/call-api?source=github)** · [联系 RunningHub 获取折扣与测试](mailto:zhenyuedong@haima.me)
+
+### 本项目如何使用 API
 
 使用官方国际站网关 `https://www.runninghub.ai/openapi/v2`：
 
